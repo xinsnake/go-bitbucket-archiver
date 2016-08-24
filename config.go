@@ -4,33 +4,100 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 )
 
 func runConfig() {
 
-	var clientID, clientSecret, code string
+	clientID := getClientID()
+	clientSecret := getClientSecret()
+	code := getCode(clientID)
+	refreshToken := getRefreshToken(clientID, clientSecret, code)
+	usernames := getTeamAndUserNames()
 
-	fmt.Printf("Please enter your client id: ")
-	fmt.Scanln(&clientID)
-
-	fmt.Printf("Please enter your client secret: ")
-	fmt.Scanln(&clientSecret)
-
-	if len(clientID) < 10 || len(clientSecret) < 20 {
-		fmt.Printf("Unable to verify client ID / secret\n")
-		os.Exit(2)
+	c := ClientConfig{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RefreshToken: refreshToken,
+		Usernames:    usernames,
 	}
 
+	saveStructToFileAsJson(c, CLIENT_CONFIG_FILE)
+}
+
+func getClientID() (clientID string) {
+	fmt.Printf("Please enter your client id: ")
+	fmt.Scanln(&clientID)
+	return
+}
+
+func getClientSecret() (clientSecret string) {
+	fmt.Printf("Please enter your client secret: ")
+	fmt.Scanln(&clientSecret)
+	return
+}
+
+func getCode(clientID string) (code string) {
 	authUri := fmt.Sprintf(AuthorizeURI, clientID)
 	fmt.Printf("Please visit this URI and finish authorization: \n%s\n", authUri)
 	fmt.Printf("After authorization, please copy the code URI parameter and paste it here: ")
 	fmt.Scanln(&code)
+	return
+}
 
+func getRefreshToken(clientID, clientSecret, code string) (token string) {
+	var (
+		cbytes []byte
+		req    *http.Request
+		resp   *http.Response
+		err    error
+	)
+
+	if cbytes, err = ioutil.ReadFile(CLIENT_CONFIG_FILE); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(cbytes, &clientConfig); err != nil {
+		return
+	}
+
+	values := url.Values{"grant_type": {"authorization_code"}, "code": {code}}
+	valuesStr := values.Encode()
+	if req, err = http.NewRequest("POST", AccessTokenURI, strings.NewReader(valuesStr)); err != nil {
+		return
+	}
+	req.SetBasicAuth(clientID, clientSecret)
+	req.Header.Add("content-type", "application/x-www-form-urlencoded")
+
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+	if resp, err = client.Do(req); err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	var respBody []byte
+	if respBody, err = ioutil.ReadAll(resp.Body); err != nil {
+		return
+	}
+	fmt.Printf("%s\n", respBody)
+
+	var o2c Oauth2Config
+	if err = json.Unmarshal(respBody, &o2c); err != nil {
+		return
+	}
+
+	return o2c.RefreshToken
+}
+
+func getTeamAndUserNames() (usernames []string) {
 	fmt.Printf("Now please enter the usernames/team names one by one, \n" +
 		"separated by Enter, and finish with an empty line:\n")
-
-	var usernames []string
 
 	for {
 		var username string
@@ -43,32 +110,5 @@ func runConfig() {
 		usernames = append(usernames, username)
 	}
 
-	if len(usernames) == 0 {
-		fmt.Printf("No usernames were specified, exising!")
-		os.Exit(3)
-	}
-
-	fmt.Printf("Generating configuration file...")
-
-	c := ClientConfig{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Code:         code,
-		Usernames:    usernames,
-	}
-
-	var (
-		bytes []byte
-		err   error
-	)
-
-	if bytes, err = json.Marshal(c); err != nil {
-		fmt.Printf(err.Error())
-		os.Exit(4)
-	}
-
-	if err := ioutil.WriteFile(ClientConfigFile, bytes, 0644); err != nil {
-		fmt.Printf("Unable to write file, please check the permission settings.")
-		os.Exit(5)
-	}
+	return
 }

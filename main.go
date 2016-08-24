@@ -1,21 +1,26 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
 
 const (
-	Oauth2ConfigFile = "config-oauth2.json"
-	ClientConfigFile = "config-client.json"
+	OAUTH2_CONFIG_FILE = "config-oauth2.json"
+	CLIENT_CONFIG_FILE = "config-client.json"
 
 	AuthorizeURI = "https://bitbucket.org/site/oauth2/authorize?client_id=%s&response_type=code"
+)
+
+var (
+	cc ClientConfig
 )
 
 type ClientConfig struct {
 	ClientID     string   `json:"client_id"`
 	ClientSecret string   `json:"client_secret"`
-	Code         string   `json:"code"`
+	RefreshToken string   `json:"refresh_token"`
 	Usernames    []string `json:"usernames"`
 }
 
@@ -32,20 +37,23 @@ func main() {
 	args := os.Args
 
 	if len(args) != 2 || (args[1] != "config" && args[1] != "archive") {
-		fmt.Printf("Usage: ./bitbucket-archiver config | archive\n")
+		fmt.Errorf("Usage: ./bitbucket-archiver config | archive\n")
 		os.Exit(1)
 	}
 
+	var err error
+
 	switch args[1] {
 	case "config":
-		runConfig()
+		err = runConfig()
 	case "archive":
-		if err := runArchive(); err != nil {
-			fmt.Printf("%s\n", err.Error())
-			os.Exit(1)
-		}
+		err = runArchive()
 	default:
-		fmt.Printf("Usage: ./bitbucket-archiver config | archive\n")
+		err = errors.New("Usage: ./bitbucket-archiver config | archive\n")
+	}
+
+	if err != nil {
+		fmt.Errorf("%s\n", err.Error())
 		os.Exit(1)
 	}
 
