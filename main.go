@@ -40,7 +40,10 @@ func main() {
 	case "config":
 		runConfig()
 	case "archive":
-		runArchive()
+		if err := runArchive(); err != nil {
+			fmt.Printf("%s\n", err.Error())
+			os.Exit(1)
+		}
 	default:
 		fmt.Printf("Usage: ./bitbucket-archiver config | archive\n")
 		os.Exit(1)
