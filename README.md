@@ -49,5 +49,6 @@ This will save repositories to `./archive/{username/team name}/{repository}`, an
 
 ## Roadmap
 
+* Better output, currently it's quite messy
 * More configuration, less hard-coding
 * Unit Testing
