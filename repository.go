@@ -130,5 +130,8 @@ func cloneRepository(owner, id, uri string) (err error) {
 		return err
 	}
 
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
 	return cmd.Run()
 }
