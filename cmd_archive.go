@@ -80,11 +80,13 @@ func runArchiveUser(accessToken, username string) (err error) {
 }
 
 func processRepository(sem chan bool, repo Repository) {
-	fmt.Printf("Processing repository %s...\n", repo.Name)
+	r := fmt.Sprintf("%s/%s", repo.Owner.Username, repo.Name)
+
+	fmt.Printf("Processing repository %s...\n", r)
 	startTime := time.Now()
 
 	if repo.Scm != "git" {
-		fmt.Printf("Repository %s is not a git repository, skipping!\n", repo.Name)
+		fmt.Printf("Repository %s is not a git repository, skipping!\n", r)
 		<-sem
 		return
 	}
@@ -98,7 +100,7 @@ func processRepository(sem chan bool, repo Repository) {
 	}
 
 	if cloneUri == "" {
-		fmt.Printf("Cannot find SSH link for repository %s, skipping!\n", repo.Name)
+		fmt.Printf("Cannot find SSH link for repository %s, skipping!\n", r)
 		<-sem
 		return
 	}
@@ -107,12 +109,12 @@ func processRepository(sem chan bool, repo Repository) {
 	repoId := strings.Replace(repo.FullName, repoOwner+"/", "", -1)
 
 	if err := cloneRepository(repoOwner, repoId, cloneUri); err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
+		fmt.Printf("Error processing repository %s: %s\n", r, err.Error())
 		<-sem
 		return
 	}
 
 	duration := time.Since(startTime)
-	fmt.Printf("Finished processing repository %s (time used: %f seconds).\n", repo.Name, duration.Seconds())
+	fmt.Printf("Finished processing repository %s (time used: %f seconds).\n", r, duration.Seconds())
 	<-sem
 }
