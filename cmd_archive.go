@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -36,23 +38,81 @@ func runArchiveUser(accessToken, username string) (err error) {
 		respBody []byte
 	)
 
-	req, err = http.NewRequest("GET", fmt.Sprintf(LIST_REPOSITORY_URI, username), nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	sem := make(chan bool, 5)
 
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
-	if resp, err = client.Do(req); err != nil {
-		return
+
+	req, err = http.NewRequest("GET", fmt.Sprintf(LIST_REPOSITORY_URI, username), nil)
+
+	for {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+		if resp, err = client.Do(req); err != nil {
+			return
+		}
+
+		defer resp.Body.Close()
+
+		if respBody, err = ioutil.ReadAll(resp.Body); err != nil {
+			return
+		}
+
+		var repoResp RepositoryResponse
+		if err = json.Unmarshal(respBody, &repoResp); err != nil {
+			return
+		}
+
+		for _, repo := range repoResp.Values {
+			sem <- true
+			go processRepository(sem, repo)
+		}
+
+		if repoResp.Next == "" {
+			break
+		}
+
+		req, err = http.NewRequest("GET", repoResp.Next, nil)
 	}
-
-	defer resp.Body.Close()
-
-	if respBody, err = ioutil.ReadAll(resp.Body); err != nil {
-		return
-	}
-
-	fmt.Printf("%s\n", respBody)
 
 	return
+}
+
+func processRepository(sem chan bool, repo Repository) {
+	fmt.Printf("Processing repository %s...\n", repo.Name)
+	startTime := time.Now()
+
+	if repo.Scm != "git" {
+		fmt.Printf("Repository %s is not a git repository, skipping!\n", repo.Name)
+		<-sem
+		return
+	}
+
+	var cloneUri string
+	for _, link := range repo.Links.Clone {
+		if link.Name != "ssh" {
+			continue
+		}
+		cloneUri = link.Href
+	}
+
+	if cloneUri == "" {
+		fmt.Printf("Cannot find SSH link for repository %s, skipping!\n", repo.Name)
+		<-sem
+		return
+	}
+
+	repoOwner := repo.Owner.Username
+	repoId := strings.Replace(repo.FullName, repoOwner+"/", "", -1)
+
+	if err := cloneRepository(repoOwner, repoId, cloneUri); err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		<-sem
+		return
+	}
+
+	duration := time.Since(startTime)
+	fmt.Printf("Finished processing repository %s (time used: %d seconds).\n", repo.Name, duration.Seconds())
+	<-sem
 }

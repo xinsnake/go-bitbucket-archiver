@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	CLIENT_CONFIG_FILE = "config-client.json"
-
+	CLIENT_CONFIG_FILE  = "config-client.json"
+	REPO_ARCHIVE_DIR    = "./archive"
 	ACCESS_TOKEN_URI    = "https://bitbucket.org/site/oauth2/access_token"
 	AUTHORIZE_URI       = "https://bitbucket.org/site/oauth2/authorize?client_id=%s&response_type=code"
 	LIST_REPOSITORY_URI = "https://api.bitbucket.org/2.0/repositories/%s"
