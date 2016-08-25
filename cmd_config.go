@@ -10,13 +10,18 @@ import (
 	"time"
 )
 
-func runConfig() {
+func runConfig() (err error) {
 
 	clientID := getClientID()
 	clientSecret := getClientSecret()
 	code := getCode(clientID)
-	refreshToken := getRefreshToken(clientID, clientSecret, code)
+	refreshToken, err := getRefreshToken(clientID, clientSecret, code)
+	if err != nil {
+		return err
+	}
 	usernames := getTeamAndUserNames()
+
+	fmt.Printf("Saving your configuration file...\n")
 
 	c := ClientConfig{
 		ClientID:     clientID,
@@ -25,77 +30,76 @@ func runConfig() {
 		Usernames:    usernames,
 	}
 
-	saveStructToFileAsJson(c, CLIENT_CONFIG_FILE)
+	return saveClientConfig(c)
 }
 
 func getClientID() (clientID string) {
+
 	fmt.Printf("Please enter your client id: ")
 	fmt.Scanln(&clientID)
+
 	return
 }
 
 func getClientSecret() (clientSecret string) {
+
 	fmt.Printf("Please enter your client secret: ")
 	fmt.Scanln(&clientSecret)
+
 	return
 }
 
 func getCode(clientID string) (code string) {
-	authUri := fmt.Sprintf(AuthorizeURI, clientID)
+
+	authUri := fmt.Sprintf(AUTHORIZE_URI, clientID)
 	fmt.Printf("Please visit this URI and finish authorization: \n%s\n", authUri)
 	fmt.Printf("After authorization, please copy the code URI parameter and paste it here: ")
 	fmt.Scanln(&code)
+
 	return
 }
 
-func getRefreshToken(clientID, clientSecret, code string) (token string) {
-	var (
-		cbytes []byte
-		req    *http.Request
-		resp   *http.Response
-		err    error
-	)
+func getRefreshToken(clientID, clientSecret, code string) (string, error) {
 
-	if cbytes, err = ioutil.ReadFile(CLIENT_CONFIG_FILE); err != nil {
-		return
+	values := url.Values{"grant_type": {"authorization_code"}, "code": {code}}.Encode()
+	req, err := http.NewRequest("POST", ACCESS_TOKEN_URI, strings.NewReader(values))
+
+	if err != nil {
+		return "", err
 	}
 
-	if err = json.Unmarshal(cbytes, &clientConfig); err != nil {
-		return
-	}
-
-	values := url.Values{"grant_type": {"authorization_code"}, "code": {code}}
-	valuesStr := values.Encode()
-	if req, err = http.NewRequest("POST", AccessTokenURI, strings.NewReader(valuesStr)); err != nil {
-		return
-	}
 	req.SetBasicAuth(clientID, clientSecret)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
-	if resp, err = client.Do(req); err != nil {
-		return
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return "", err
 	}
 
 	defer resp.Body.Close()
 
-	var respBody []byte
-	if respBody, err = ioutil.ReadAll(resp.Body); err != nil {
-		return
-	}
-	fmt.Printf("%s\n", respBody)
+	respBody, err := ioutil.ReadAll(resp.Body)
 
-	var o2c Oauth2Config
-	if err = json.Unmarshal(respBody, &o2c); err != nil {
-		return
+	if err != nil {
+		return "", err
 	}
 
-	return o2c.RefreshToken
+	var oc Oauth2Config
+	err = json.Unmarshal(respBody, &oc)
+
+	if err != nil {
+		return "", err
+	}
+
+	return oc.RefreshToken, nil
 }
 
 func getTeamAndUserNames() (usernames []string) {
+
 	fmt.Printf("Now please enter the usernames/team names one by one, \n" +
 		"separated by Enter, and finish with an empty line:\n")
 

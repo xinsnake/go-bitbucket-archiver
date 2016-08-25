@@ -2,21 +2,29 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
-	"os"
 )
 
-func saveStructToFileAsJson(c interface{}, filename string) {
-	var bytes []byte
+func saveClientConfig(c ClientConfig) (err error) {
 
-	if bytes, err = json.Marshal(c); err != nil {
-		fmt.Printf(err.Error())
-		os.Exit(4)
+	var b []byte
+
+	if b, err = json.Marshal(c); err != nil {
+		return
 	}
 
-	if err = ioutil.WriteFile(ClientConfigFile, bytes, 0644); err != nil {
-		return errors.New("Unable to write file, please check the permission settings.")
+	return ioutil.WriteFile(CLIENT_CONFIG_FILE, b, 0644)
+}
+
+func loadClientConfig() (c ClientConfig, err error) {
+
+	var b []byte
+
+	if b, err = ioutil.ReadFile(CLIENT_CONFIG_FILE); err != nil {
+		return
 	}
+
+	err = json.Unmarshal(b, &c)
+
+	return
 }

@@ -7,14 +7,11 @@ import (
 )
 
 const (
-	OAUTH2_CONFIG_FILE = "config-oauth2.json"
 	CLIENT_CONFIG_FILE = "config-client.json"
 
-	AuthorizeURI = "https://bitbucket.org/site/oauth2/authorize?client_id=%s&response_type=code"
-)
-
-var (
-	cc ClientConfig
+	ACCESS_TOKEN_URI    = "https://bitbucket.org/site/oauth2/access_token"
+	AUTHORIZE_URI       = "https://bitbucket.org/site/oauth2/authorize?client_id=%s&response_type=code"
+	LIST_REPOSITORY_URI = "https://api.bitbucket.org/2.0/repositories/%s"
 )
 
 type ClientConfig struct {
@@ -37,7 +34,7 @@ func main() {
 	args := os.Args
 
 	if len(args) != 2 || (args[1] != "config" && args[1] != "archive") {
-		fmt.Errorf("Usage: ./bitbucket-archiver config | archive\n")
+		fmt.Printf("Usage: ./bitbucket-archiver config | archive\n")
 		os.Exit(1)
 	}
 
@@ -53,7 +50,7 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Errorf("%s\n", err.Error())
+		fmt.Printf("ERR: %s\n", err)
 		os.Exit(1)
 	}
 

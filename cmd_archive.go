@@ -7,39 +7,37 @@ import (
 	"time"
 )
 
-const (
-	AccessTokenURI    = "https://bitbucket.org/site/oauth2/access_token"
-	ListRepositoryURI = "https://api.bitbucket.org/2.0/repositories/%s"
-)
-
-var (
-	clientConfig ClientConfig
-)
-
-type Repository struct {
-}
-
 func runArchive() (err error) {
-	if err = o2c.getRefreshToken(); err != nil {
+
+	clientConfig, err := loadClientConfig()
+
+	if err != nil {
+		return
+	}
+
+	accessToken, err := getAccessToken(clientConfig)
+
+	if err != nil {
 		return
 	}
 
 	for _, username := range clientConfig.Usernames {
-		err = runArchiveUser(username)
+		err = runArchiveUser(accessToken, username)
 	}
 
 	return
 }
 
-func runArchiveUser(username string) (err error) {
+func runArchiveUser(accessToken, username string) (err error) {
+
 	var (
 		req      *http.Request
 		resp     *http.Response
 		respBody []byte
 	)
 
-	req, err = http.NewRequest("GET", fmt.Sprintf(ListRepositoryURI, username), nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", o2c.AccessToken))
+	req, err = http.NewRequest("GET", fmt.Sprintf(LIST_REPOSITORY_URI, username), nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 
 	client := http.Client{
 		Timeout: 10 * time.Second,
@@ -53,6 +51,7 @@ func runArchiveUser(username string) (err error) {
 	if respBody, err = ioutil.ReadAll(resp.Body); err != nil {
 		return
 	}
+
 	fmt.Printf("%s\n", respBody)
 
 	return
