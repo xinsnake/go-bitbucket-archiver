@@ -118,7 +118,6 @@ func cloneRepository(owner, id, uri string) (err error) {
 	var cmd *exec.Cmd
 
 	_, err = os.Stat(repoDir)
-	fmt.Printf("%+v\n", err)
 	if err == nil {
 		fmt.Printf("Updating repository %s/%s\n", owner, id)
 		cmd = exec.Command("git", "pull")

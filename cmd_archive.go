@@ -113,6 +113,6 @@ func processRepository(sem chan bool, repo Repository) {
 	}
 
 	duration := time.Since(startTime)
-	fmt.Printf("Finished processing repository %s (time used: %d seconds).\n", repo.Name, duration.Seconds())
+	fmt.Printf("Finished processing repository %s (time used: %f seconds).\n", repo.Name, duration.Seconds())
 	<-sem
 }
